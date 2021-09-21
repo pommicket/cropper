@@ -196,12 +196,39 @@ int main(int argc, char **argv) {
 	
 	bool quit = false;
 	
-	GLuint shader = gl_create_program_from_files("v.glsl", "f.glsl");
+	const char *vshader_code =
+		"#version 110\n"
+	    "attribute vec2 v_pos, v_tex_coord;\n"
+		"attribute vec4 v_color;\n"
+		"varying vec4 color;\n"
+		"varying vec2 tex_coord;\n"
+		"uniform float u_aspect_ratio;\n"
+		"void main() {\n"
+		"  float x = v_pos.x / u_aspect_ratio;\n"
+		"  float y = v_pos.y;\n"
+		"  gl_Position = vec4(x, y, 0.0, 1.0);\n"
+		"  color = v_color;\n"
+		"  tex_coord = v_tex_coord;\n"
+		"}\n";
+	
+	const char *fshader_code =
+		"#version 110\n"
+		"varying vec4 color;\n"
+		"varying vec2 tex_coord;\n"
+		"uniform int u_use_texture;\n"
+		"uniform sampler2D u_texture;\n"
+		"void main() {\n"
+		"  if (u_use_texture != 0)\n"
+		"     gl_FragColor = vec4(vec3(texture2D(u_texture, tex_coord).x), 1.0);\n"
+		"  else\n"
+		"     gl_FragColor = color;\n"
+		"}\n";
+	
+	GLuint shader = gl_compile_and_link_shaders(vshader_code, fshader_code);
 	GLuint vbo = gl_gen_buffer(), vao = gl_gen_vertex_array();
 	GLuint v_pos = gl_attrib_loc(shader, "v_pos");
 	GLuint v_tex_coord = gl_attrib_loc(shader, "v_tex_coord");
 	GLuint v_color = gl_attrib_loc(shader, "v_color");
-	GLint u_transform = gl_uniform_loc(shader, "u_transform");
 	GLint u_aspect_ratio = gl_uniform_loc(shader, "u_aspect_ratio");
 	GLint u_use_texture = gl_uniform_loc(shader, "u_use_texture");
 	GLint u_texture = gl_uniform_loc(shader, "u_texture");
@@ -386,8 +413,6 @@ int main(int argc, char **argv) {
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glUniform1i(u_use_texture, 1);
 		glUniform1i(u_texture, 0);
-		m3 transform = m3_identity;
-		m3_uniform(u_transform, &transform);
 		glUniform1f(u_aspect_ratio, aspect_ratio);
 		glBindVertexArray(vao);
 		glDrawElements(GL_TRIANGLES, arr_len(elements), GL_UNSIGNED_SHORT, elements);
@@ -448,7 +473,6 @@ int main(int argc, char **argv) {
 		
 		glUseProgram(shader);
 		glUniform1i(u_use_texture, 0);
-		m3_uniform(u_transform, &transform);
 		glUniform1f(u_aspect_ratio, aspect_ratio);
 		glBindVertexArray(vao);
 		glDrawElements(GL_TRIANGLES, arr_len(elements), GL_UNSIGNED_SHORT, elements);
